@@ -1,0 +1,94 @@
+import torch
+import os
+import argparse
+from tqdm import tqdm
+
+from models.TransferNet import TransferNet
+from utils import data_loader
+from utils.tools import str2bool, str2list
+
+
+
+def extract_and_save_features(args):
+    os.environ["CUDA_VISIBLE_DEVICES"] = str(args.gpu_id)
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    print(f"Using device: {device}")
+
+    target_test_loader, _ = data_loader.load_data(
+        args, args.txt_path, args.batch_size, train=False, infinite_data_loader=False, num_workers=args.num_workers, 
+        multi_view=args.tgt_multi_view, multi_view_index=args.tgt_multi_view_index)
+
+    class DummyArgs:
+        pass
+    model_args = DummyArgs()
+    model_args.model_name = args.model_name
+    model_args.num_class = args.num_class
+    model_args.baseline = False 
+    model_args.device = device
+    model_args.fixmatch = False
+    model_args.datasets = "MI3DOR"
+
+    # 1.  
+    model = TransferNet(model_args, train=False).to(device)
+    
+    # 2. 严格使用 vlp-uda 的解析逻辑加载权重
+    print(f"Loading weights from {args.model_path}...")
+    checkpoints = torch.load(args.model_path, map_location="cpu", weights_only=False)
+    
+    model.base_network.model.visual.load_state_dict(checkpoints["backbone_state_dict"])
+    model.classifier_layer.load_state_dict(checkpoints["head_state_dict"])
+    print("Successfully loaded dense weights.")
+
+    # 3. 将加载好权重的模型推至GPU并开启验证模式
+    model = model.to(device)
+    model.eval()
+
+    all_features = []
+    all_labels = []
+
+    print("Start extracting features...")
+    with torch.no_grad():
+        for imgs, labels in tqdm(target_test_loader, desc="Extracting"):
+            if len(imgs.shape) == 5:  # (B, V, C, H, W)
+                B, V, C, H, W = imgs.shape
+                imgs = imgs.view(B * V, C, H, W).to(device)
+                features = model.base_network.forward_features(imgs)
+                features = features.view(B, V, -1)
+                pooled_features, _ = torch.max(features, dim=1) 
+                
+                all_features.append(pooled_features.cpu())
+                all_labels.append(labels.cpu())
+            else:
+                imgs = imgs.to(device)
+                features = model.base_network.forward_features(imgs)
+                all_features.append(features.cpu())
+                all_labels.append(labels.cpu())
+
+    all_features = torch.cat(all_features, dim=0) 
+    all_labels = torch.cat(all_labels, dim=0)     
+
+    if os.path.dirname(args.output_path):
+        os.makedirs(os.path.dirname(args.output_path), exist_ok=True)
+        
+    save_dict = {
+        'fea': all_features,
+        'label': all_labels
+    }
+    torch.save(save_dict, args.output_path)
+    print(f"Successfully saved to {args.output_path}")
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description="Extract features for VLP-UDA")
+    parser.add_argument('--txt_path', type=str, required=True)
+    parser.add_argument('--model_path', type=str, required=True)
+    parser.add_argument('--tgt_multi_view', type=str2bool, required=True)
+    parser.add_argument('--tgt_multi_view_index', type=str2list, default=None, help="Comma-separated list of indices for multi-view target domain, e.g., '0,1,2' or '[0,1,2]'")
+    parser.add_argument('--output_path', type=str, required=True)
+    parser.add_argument('--num_class', type=int, required=True)
+    parser.add_argument('--model_name', type=str, required=True)
+    parser.add_argument('--batch_size', type=int, default=128)
+    parser.add_argument('--num_workers', type=int, default=4)
+    parser.add_argument('--gpu_id', type=int, required=True)
+    
+    args = parser.parse_args()
+    extract_and_save_features(args)

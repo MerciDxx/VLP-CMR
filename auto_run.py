@@ -17,16 +17,26 @@ REPO_ROOT = os.path.dirname(os.path.abspath(__file__))
 def build_task_list():
     tasks = []
 
-	# 选择NN得分靠前的4个视角
     tasks.append({
-        "name": "viwes[2,3,6,12]_with_fixmatch",
+        "name": "avg_polling_all_views",
         "tgt_domain": "target_train.txt",
         "tgt_multi_view": True,
-        "tgt_multi_view_index": [1, 2, 5, 11],
+        "tgt_multi_view_index": None,
         "test_tgt_txt": "target_test.txt",
         "test_tgt_multi_view": True,
-        "test_tgt_multi_view_index": [1, 2, 5, 11],
+        "test_tgt_multi_view_index": None,
     })
+
+	# # 选择NN得分靠前的4个视角
+    # tasks.append({
+    #     "name": "viwes[2,3,6,12]_with_fixmatch",
+    #     "tgt_domain": "target_train.txt",
+    #     "tgt_multi_view": True,
+    #     "tgt_multi_view_index": [1, 2, 5, 11],
+    #     "test_tgt_txt": "target_test.txt",
+    #     "test_tgt_multi_view": True,
+    #     "test_tgt_multi_view_index": [1, 2, 5, 11],
+    # })
     
     # # 添加 tgt_all_12_views 任务
     # tasks.append({

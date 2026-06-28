@@ -85,7 +85,18 @@ class TransferNet(nn.Module):
     """
     def forward(self, source_imgs, source_labels, target_imgs, target_strong_imgs=None):
         self.base_network.apply(fix_bn)     # 冻结clip的BN层
-        source_features = self.base_network.forward_features(source_imgs)               # 提取源域图像的特征，这里得到的是f(x)
+
+        # 处理源域图像的多视角情况
+        if len(source_imgs.shape) == 5:       # [B, V, C, H, W]
+            B, V, C, H, W = source_imgs.shape
+            source_imgs_flat = source_imgs.view(B*V, C, H, W)
+            source_features_flat = self.base_network.forward_features(source_imgs_flat)
+            source_features_multiviews = source_features_flat.view(B, V, -1)
+            source_features = self.target_feature_pooling(source_features_multiviews)    # 对多视角特征进行池化操作，得到每个样本的整体特征表示
+        else:
+            source_features = self.base_network.forward_features(source_imgs)  # 提取源域图像的特征
+        # source_features = self.base_network.forward_features(source_imgs)               # 提取源域图像的特征，这里得到的是f(x)
+
         source_cls_logits = self.classifier_layer(source_features)                      # 通过分类头得到源域图像的预测结果logits，这里得到的是ph'
         clf_loss = self.clf_loss(source_cls_logits, source_labels)                      # 计算分类损失，这里仅仅是拿源域来训练clip的视觉编码器，和分类头。没有文本编码器的参与，也不涉及目标域
 

@@ -18,7 +18,7 @@ def get_parser():
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument('--num_workers', type=int, default=4)
     parser.add_argument('--log_info', type=str, required=True)
-    parser.add_argument('--datasets', type=str, required=True, choices=["MI3DOR", "MI3DOR-2"])
+    parser.add_argument('--datasets', type=str, required=True, choices=["MI3DOR", "MI3DOR-2", "GraspNet", "PointDA"])
     parser.add_argument('--use_amp', type=str2bool, default=False)
 
     # network related

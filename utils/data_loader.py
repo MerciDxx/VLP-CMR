@@ -3,7 +3,7 @@ from torchvision import transforms
 from PIL import Image
 import torch
 from utils.FixMatch import TransformFixMatch
-
+from utils.datasets import GraspNet, PointDA, Scannet 
 
 
 """
@@ -201,3 +201,72 @@ def load_data(args, data_index_txt, batch_size, train, infinite_data_loader = Fa
                                     num_workers=num_workers, infinite_data_loader=infinite_data_loader)
     n_class = len(data.classes)
     return data_loader, n_class
+
+
+
+
+
+
+def load_PointCloud_data(args):
+    source_domain = args.src_domain
+    target_domain = args.tgt_domain
+
+    if args.datasets == "GraspNet":
+        if source_domain == 'Synthetic':
+            train_dataset = GraspNet(args.data_dir, split='train', data_type='Synthetic')
+        elif source_domain == 'kinect':
+            train_dataset = GraspNet(args.data_dir, split='train', data_type='Real', camera='kinect')
+        elif source_domain == 'realsense':
+            train_dataset = GraspNet(args.data_dir, split='train', data_type='Real', camera='realsense')
+
+        if target_domain == 'Synthetic':
+            raise ValueError("Synthetic target domain not supported")
+        elif target_domain == 'kinect':
+            train_dataset_unlabelled = GraspNet(args.data_dir, split='train', data_type='Real', camera='kinect')
+            test_dataset = GraspNet(args.data_dir, split='test', data_type='Real', camera='kinect')
+        elif target_domain == 'realsense':
+            train_dataset_unlabelled = GraspNet(args.data_dir, split='train', data_type='Real', camera='realsense')
+            test_dataset = GraspNet(args.data_dir, split='test', data_type='Real', camera='realsense')
+
+    else:
+        if source_domain == 'scannet':
+            train_dataset = Scannet(f'{args.data_dir}/{source_domain}', split='train')
+        else:
+            train_dataset = PointDA(f'{args.data_dir}/{source_domain}', split='train')
+
+        if target_domain == 'scannet':
+            train_dataset_unlabelled = Scannet(f'{args.data_dir}/{target_domain}', split='train')
+            test_dataset = Scannet(f'{args.data_dir}/{target_domain}', split='test')
+        else:
+            train_dataset_unlabelled = PointDA(f'{args.data_dir}/{target_domain}', split='train')
+            test_dataset = PointDA(f'{args.data_dir}/{target_domain}', split='test')
+
+
+    source_loader = InfiniteDataLoader(
+        dataset=train_dataset,
+        batch_size=args.l_batch_size,
+        shuffle=True,
+        drop_last=True,
+        num_workers=args.num_workers
+    )
+
+    target_train_loader = InfiniteDataLoader(
+        dataset=train_dataset_unlabelled,
+        batch_size=args.u_batch_size, 
+        shuffle=True,
+        drop_last=True,
+        num_workers=args.num_workers
+    )
+
+    target_test_loader = torch.utils.data.DataLoader(
+        test_dataset,
+        batch_size=args.u_batch_size,
+        shuffle=False,
+        num_workers=args.num_workers,
+        drop_last=False,
+        pin_memory=(torch.cuda.is_available())
+    )
+
+    n_class = len(train_dataset.idx_to_class)
+
+    return source_loader, target_train_loader, target_test_loader, n_class

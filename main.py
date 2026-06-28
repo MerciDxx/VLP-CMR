@@ -14,6 +14,7 @@ import logging
 from tqdm import tqdm
 from utils.tools import AverageMeter, save_model
 scaler = torch.amp.GradScaler('cuda')       # 用于混合精度训练的梯度缩放器，帮助稳定训练过程并防止数值下溢
+from utils.render import Realistic_Projection       # 用于GraspNet数据集的点云投影工具，将点云数据转换为图像形式，以便输入到CLIP模型中进行特征提取
 
 
 def set_random_seed(seed):
@@ -26,11 +27,20 @@ def set_random_seed(seed):
     torch.backends.cudnn.benchmark = False
 
 
+pc_views = Realistic_Projection()
+def real_proj(pc, imsize=224):
+    img = pc_views.get_img(pc.float()).to(pc.device)
+    img = torch.nn.functional.interpolate(img, size=(imsize, imsize), mode='bilinear', align_corners=True)        
+    return img
+
 
 """
     加载源域和目标域的数据，返回数据加载器和类别数
 """
 def load_data(args):
+    if args.datasets in ["GraspNet", "PointDA"]:
+        return data_loader.load_PointCloud_data(args)
+
     use_fixmatch = args.fixmatch
     index_txt_src = os.path.join(args.data_dir, args.src_domain)
     index_txt_tgt = os.path.join(args.data_dir, args.tgt_domain)
@@ -69,6 +79,11 @@ def test(model, target_test_loader, args):
     with torch.no_grad():
         for data, target in tqdm(iterable=target_test_loader,desc="Testing..."):
             data, target = data.to(args.device), target.to(args.device)
+
+            if args.datasets in ["GraspNet", "PointDA"]:
+                data_images = real_proj(data)
+                data = data_images.reshape(data.size(0), 10, data_images.shape[-3], data_images.shape[-2], data_images.shape[-1])
+
             s_output = model.predict(data)
             loss = criterion(s_output, target)
             test_loss.update(loss.item())
@@ -112,6 +127,18 @@ def train(source_loader, target_train_loader, target_test_loader, model, optimiz
                 data_target, data_target_strong = data_target.to(args.device), data_target_strong.to(args.device)
             else:
                 data_target = data_target.to(args.device)
+
+            # 注意，目前点云数据集仅支持非fixmatch
+            if args.datasets in ["GraspNet", "PointDA"]:
+                source_B = data_source.size(0)
+                target_B = data_target.size(0)
+
+                with torch.no_grad():
+                    data_source_images = real_proj(data_source)
+                    data_source = data_source_images.reshape(source_B, 10, data_source_images.shape[-3], data_source_images.shape[-2], data_source_images.shape[-1])
+
+                    data_target_images = real_proj(data_target)
+                    data_target = data_target_images.reshape(target_B, 10, data_target_images.shape[-3], data_target_images.shape[-2], data_target_images.shape[-1])
 
             if args.use_amp:        # 混合精度训练
                 with torch.amp.autocast(device_type='cuda', dtype=torch.float16):

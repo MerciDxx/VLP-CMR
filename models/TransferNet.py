@@ -24,12 +24,6 @@ def weights_init_classifier(m):
             nn.init.constant_(m.bias, 0.0)
 
 
-# 对clip的BN层进行冻结，保持其在训练过程中不更新，以稳定训练过程并防止过拟合。
-def fix_bn(m):
-    classname = m.__class__.__name__
-    if classname.find('BatchNorm') != -1:
-       m.eval()
-
 
 
 class TransferNet(nn.Module):
@@ -84,7 +78,7 @@ class TransferNet(nn.Module):
         计算并返回分类头的损失和跨域一致性蒸馏损失
     """
     def forward(self, source_imgs, source_labels, target_imgs, target_strong_imgs=None):
-        self.base_network.apply(fix_bn)     # 冻结clip的BN层
+        # self.base_network.apply(fix_bn)     # 冻结clip的BN层
 
         # 处理源域图像的多视角情况
         if len(source_imgs.shape) == 5:       # [B, V, C, H, W]

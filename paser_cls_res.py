@@ -110,8 +110,8 @@ def main() -> None:
     parser.add_argument(
         "root",
         nargs="?",
-        default="output_log/MI3DOR-2",
-        help="Root directory to scan (default: output_log/MI3DOR2)",
+        default="output_log/PointDA",
+        help="Root directory to scan (default: output_log/PointDA)",
     )
     parser.add_argument(
         "--sort",

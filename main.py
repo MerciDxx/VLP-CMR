@@ -12,7 +12,7 @@ from utils import data_loader
 from models.TransferNet import TransferNet
 import logging
 from tqdm import tqdm
-from utils.tools import AverageMeter, save_model
+from utils.tools import AverageMeter, save_model, fix_bn
 scaler = torch.amp.GradScaler('cuda')       # 用于混合精度训练的梯度缩放器，帮助稳定训练过程并防止数值下溢
 from utils.render import Realistic_Projection       # 用于GraspNet数据集的点云投影工具，将点云数据转换为图像形式，以便输入到CLIP模型中进行特征提取
 
@@ -58,10 +58,41 @@ def load_data(args):
     获取优化器，使用SGD优化器，并根据参数设置学习率、动量和权重衰减
 """
 def get_optimizer(model, args):
+    # 原方法使用SGD优化器 我建议之后尝试采用adam优化器
     initial_lr = args.lr if not args.scheduler else 1.0
     params = model.get_parameters(initial_lr=initial_lr)
-    optimizer = torch.optim.SGD(params, lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay, nesterov=True)
-    return optimizer
+
+    if args.optim_type == 'SGD':
+        optimizer = torch.optim.SGD(
+            params, 
+            lr=args.lr, 
+            momentum=args.momentum, 
+            weight_decay=args.weight_decay, 
+            nesterov=True
+        )
+        return optimizer
+    
+    elif args.optim_type == 'Adam':
+        # Adam 优化器不需要 momentum 和 nesterov
+        optimizer = torch.optim.Adam(
+            params, 
+            lr=args.lr, 
+            weight_decay=args.weight_decay
+        )
+        return optimizer
+
+    elif args.optim_type == 'AdamW':
+        # 【强烈推荐】微调专用 AdamW，权重衰减（weight decay）更准确
+        optimizer = torch.optim.AdamW(
+            params, 
+            lr=args.lr, 
+            weight_decay=args.weight_decay
+        )
+        return optimizer
+        
+    else:
+        raise ValueError(f"Unsupported optimizer type: {args.optim_type}")
+
 
 
 
@@ -110,6 +141,7 @@ def train(source_loader, target_train_loader, target_test_loader, model, optimiz
     early_stop_counter = 0      # 用于早停的计数器，记录连续多少个epoch没有提升验证集性能
     for e in range(1, args.n_epoch+1):
         model.train()
+        model.base_network.apply(fix_bn) # 冻结clip的BN层
 
         train_loss_clf = AverageMeter()
         train_loss_transfer = AverageMeter()

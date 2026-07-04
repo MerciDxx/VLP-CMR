@@ -31,6 +31,13 @@ def str2list(v):
         raise configargparse.ArgumentTypeError(f"无法解析列表: {v}")
 
 
+# 对clip的BN层进行冻结，保持其在训练过程中不更新，以稳定训练过程并防止过拟合。
+# 这里其实只针对resnet，因为其在小批次样本的时候BN层效果会很差
+def fix_bn(m):
+    classname = m.__class__.__name__
+    if classname.find('BatchNorm') != -1:
+       m.eval()
+
 
 """
     Computes and stores the average and current value

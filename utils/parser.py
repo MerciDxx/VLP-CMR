@@ -45,6 +45,7 @@ def get_parser():
     parser.add_argument('--fixmatch_factor', type=float, default=0.5)
 
     # optimizer related
+    parser.add_argument('--optim_type', type=str, default='SGD', choices=['SGD', 'Adam', 'AdamW'])
     parser.add_argument('--lr', type=float, default=3e-4)
     parser.add_argument('--momentum', type=float, default=0.9)
     parser.add_argument('--weight_decay', type=float, default=5e-4)

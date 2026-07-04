@@ -1,6 +1,6 @@
 import torch.nn as nn
 import clip
-
+import torch
 
 
 class CLIP(nn.Module):
@@ -31,8 +31,10 @@ class CLIP(nn.Module):
         self.model = model
         self.args = args
         self.text = clip.tokenize(class_list).to(args.device)
-        text_features = self.encode_text().detach().to(args.device)          # 这里得到的是文本特征 g(t) 
-        self.text_features = text_features / text_features.norm(dim=1, keepdim=True)    # 文本特征归一化
+
+        with torch.no_grad():
+            text_features = self.encode_text().detach().to(args.device)          # 这里得到的是文本特征 g(t) 
+            self.text_features = text_features / text_features.norm(dim=1, keepdim=True)    # 文本特征归一化
 
 
     # 用clip的视觉编码器提取图像特征

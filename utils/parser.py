@@ -38,6 +38,8 @@ def get_parser():
     parser.add_argument('--label_smoothing', type=float, default=0.0, help="Label smoothing factor for CrossEntropyLoss")
     parser.add_argument("--n_iter_per_epoch", type=int, default=100, help="Used in Iteration-based training")
     parser.add_argument('--early_stop_patience', type=int, default=20, help="Early stopping patience in terms of epochs")
+    parser.add_argument('--mv_select_mode', type=str, default="All", choices=["All", "Soft", "MV_CLIP"])
+    parser.add_argument('--top_k', type=int, default=4, help="Number of top views to select for MV_CLIP mode")
 
     # FixMatch
     parser.add_argument('--fixmatch', type=str2bool, default=False)

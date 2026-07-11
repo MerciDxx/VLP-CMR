@@ -27,6 +27,8 @@ def extract_and_save_features(args):
     model_args.device = device
     model_args.fixmatch = False
     model_args.datasets = "MI3DOR"
+    model_args.mv_select_mode = args.mv_select_mode  # 需要命令行新增参数
+    model_args.top_k = args.top_k
 
     # 1.  
     model = TransferNet(model_args, train=False).to(device)
@@ -50,11 +52,14 @@ def extract_and_save_features(args):
     with torch.no_grad():
         for imgs, labels in tqdm(target_test_loader, desc="Extracting"):
             if len(imgs.shape) == 5:  # (B, V, C, H, W)
+                imgs = imgs.to(device)
                 B, V, C, H, W = imgs.shape
-                imgs = imgs.view(B * V, C, H, W).to(device)
-                features = model.base_network.forward_features(imgs)
-                features = features.view(B, V, -1)
-                pooled_features, _ = torch.max(features, dim=1) 
+                imgs_flat = imgs.view(B * V, C, H, W)
+                features_flat = model.base_network.forward_features(imgs_flat)
+                features_multiviews = features_flat.view(B, V, -1)
+                # 关键：调用多视角选择模块，和训练推理保持一致
+                _, features_multiviews = model.multi_views_selection(features_multiviews)
+                pooled_features = model.target_feature_pooling(features_multiviews)
                 
                 all_features.append(pooled_features.cpu())
                 all_labels.append(labels.cpu())
@@ -89,6 +94,8 @@ if __name__ == '__main__':
     parser.add_argument('--batch_size', type=int, default=128)
     parser.add_argument('--num_workers', type=int, default=4)
     parser.add_argument('--gpu_id', type=int, required=True)
-    
+    parser.add_argument('--mv_select_mode', type=str, required=True)
+    parser.add_argument('--top_k', type=int, required=True)
+
     args = parser.parse_args()
     extract_and_save_features(args)

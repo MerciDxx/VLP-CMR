@@ -18,13 +18,27 @@ def build_task_list():
     tasks = []
 
     tasks.append({
-        "name": "avg_polling_all_views",
-        "tgt_domain": "target_train.txt",
+        "name": "MV_CLIP",
+        "tgt_domain": "Model_net_40_target_train.txt",
         "tgt_multi_view": True,
         "tgt_multi_view_index": None,
-        "test_tgt_txt": "target_test.txt",
+        "test_tgt_txt": "Model_net_40_target_test.txt",
         "test_tgt_multi_view": True,
         "test_tgt_multi_view_index": None,
+		"mv_select_mode": "MV_CLIP",
+		"top_k": 4
+    })
+
+    tasks.append({
+        "name": "Soft",
+        "tgt_domain": "Model_net_40_target_train.txt",
+        "tgt_multi_view": True,
+        "tgt_multi_view_index": None,
+        "test_tgt_txt": "Model_net_40_target_test.txt",
+        "test_tgt_multi_view": True,
+        "test_tgt_multi_view_index": None,
+		"mv_select_mode": "Soft",
+		"top_k": 4
     })
 
 	# # 选择NN得分靠前的4个视角
@@ -204,6 +218,10 @@ def run_task(task, task_id, task_total, gpu_id, config_path, config, num_class, 
 		tgt_domain,
 		"--tgt_multi_view",
 		str(task["tgt_multi_view"]).lower(),
+		"--mv_select_mode",
+		task["mv_select_mode"],
+		"--top_k",
+		str(task["top_k"])
 	]
 
 	index_arg = format_index_arg(task["tgt_multi_view_index"])
@@ -240,6 +258,10 @@ def run_task(task, task_id, task_total, gpu_id, config_path, config, num_class, 
 		str(num_workers),
 		"--gpu_id",
 		str(gpu_id),
+		"--mv_select_mode",
+		task["mv_select_mode"],
+		"--top_k",
+		str(task["top_k"]),
 	]
 	extract_source_log = os.path.join(output_dir, "extract_source.log")
 	logger.info("Extract source -> %s", extract_source_log)
@@ -265,6 +287,10 @@ def run_task(task, task_id, task_total, gpu_id, config_path, config, num_class, 
 		str(num_workers),
 		"--gpu_id",
 		str(gpu_id),
+		"--mv_select_mode",
+		task["mv_select_mode"],
+		"--top_k",
+		str(task["top_k"]),
 	]
 
 	index_arg = format_index_arg(task["test_tgt_multi_view_index"])
@@ -339,7 +365,7 @@ def main():
 				gpu for gpu in gpus
 				if is_gpu_free(gpu, args.mem_threshold, args.util_threshold)
 			]
-			if len(free_gpus) < 2:
+			if len(free_gpus) <= 2:
 				time.sleep(args.poll_interval)
 				continue
 			free_gpus_sorted = sorted(free_gpus, key=lambda g: g["index"], reverse=True)

@@ -111,7 +111,7 @@ def main() -> None:
     parser.add_argument(
         "root",
         nargs="?",
-        default="output_log/MI3DOR",
+        default="output_log/MI3DOR-2",
         help="Root directory to scan (default: output_log)",
     )
     parser.add_argument(
@@ -123,7 +123,7 @@ def main() -> None:
     parser.add_argument(
         "--md",
         dest="md_output",
-        default="results.md",
+        default="MI3DOR-2.md",
         help="Write Markdown table to file (or '-' for stdout).",
     )
     args = parser.parse_args()

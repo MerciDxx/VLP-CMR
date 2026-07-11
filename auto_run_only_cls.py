@@ -19,17 +19,105 @@ def build_task_list():
 
 
     tasks.append({
-        "name": "M2S_star",
+        "name": "M2S_star_MV_CLIP",
 		"src_domain": "modelnet",
-        "tgt_domain": "scannet"
+        "tgt_domain": "scannet",
+		"mv_select_mode": "MV_CLIP",
+		"top_k": 4
     })
 
     tasks.append({
-        "name": "S2S_star",
-		"src_domain": "shapenet",
-        "tgt_domain": "scannet"
+        "name": "M2S_star_Soft",
+		"src_domain": "modelnet",
+        "tgt_domain": "scannet",
+		"mv_select_mode": "Soft",
+		"top_k": 4
     })
-    
+
+    tasks.append({
+        "name": "M2S_MV_CLIP",
+		"src_domain": "modelnet",
+        "tgt_domain": "shapenet",
+		"mv_select_mode": "MV_CLIP",
+		"top_k": 4
+    })
+
+    tasks.append({
+        "name": "M2S_Soft",
+		"src_domain": "modelnet",
+        "tgt_domain": "shapenet",
+		"mv_select_mode": "Soft",
+		"top_k": 4
+    })
+
+
+
+    tasks.append({
+        "name": "S_star2M_MV_CLIP",
+		"src_domain": "scannet",
+        "tgt_domain": "modelnet",
+		"mv_select_mode": "MV_CLIP",
+		"top_k": 4
+    })
+
+    tasks.append({
+        "name": "S_star2M_Soft",
+		"src_domain": "scannet",
+        "tgt_domain": "modelnet",
+		"mv_select_mode": "Soft",
+		"top_k": 4
+    })
+
+    tasks.append({
+        "name": "S_star2S_MV_CLIP",
+		"src_domain": "scannet",
+        "tgt_domain": "shapenet",
+		"mv_select_mode": "MV_CLIP",
+		"top_k": 4
+    })
+
+    tasks.append({
+        "name": "S_star2S_Soft",
+		"src_domain": "scannet",
+        "tgt_domain": "shapenet",
+		"mv_select_mode": "Soft",
+		"top_k": 4
+    })
+
+
+
+    tasks.append({
+        "name": "S2M_MV_CLIP",
+		"src_domain": "shapenet",
+        "tgt_domain": "modelnet",
+		"mv_select_mode": "MV_CLIP",
+		"top_k": 4
+    })
+
+    tasks.append({
+        "name": "S2M_Soft",
+		"src_domain": "shapenet",
+        "tgt_domain": "modelnet",
+		"mv_select_mode": "Soft",
+		"top_k": 4
+    })
+
+    tasks.append({
+        "name": "S2S_star_MV_CLIP",
+		"src_domain": "shapenet",
+        "tgt_domain": "scannet",
+		"mv_select_mode": "MV_CLIP",
+		"top_k": 4
+    })
+
+    tasks.append({
+        "name": "S2S_star_Soft",
+		"src_domain": "shapenet",
+        "tgt_domain": "scannet",
+		"mv_select_mode": "Soft",
+		"top_k": 4
+    })
+	
     return tasks
 
 
@@ -157,7 +245,11 @@ def run_task(task, task_id, task_total, gpu_id, config_path, output_log_root):
 		"--src_domain",
         src_domain,
 		"--tgt_domain",
-		tgt_domain
+		tgt_domain,
+		"--mv_select_mode",
+		task["mv_select_mode"],
+		"--top_k",
+		str(task["top_k"])
 	]
 
 	train_log = os.path.join(output_dir, "train.log")
@@ -199,7 +291,7 @@ def main():
 				gpu for gpu in gpus
 				if is_gpu_free(gpu, args.mem_threshold, args.util_threshold)
 			]
-			if len(free_gpus) < 2:
+			if len(free_gpus) <= 2:
 				time.sleep(args.poll_interval)
 				continue
 			free_gpus_sorted = sorted(free_gpus, key=lambda g: g["index"], reverse=True)

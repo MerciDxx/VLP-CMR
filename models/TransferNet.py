@@ -49,6 +49,11 @@ class TransferNet(nn.Module):
             self.cvcd = cvcd.CVCD(args)
             self.clf_loss = torch.nn.CrossEntropyLoss(label_smoothing=args.label_smoothing)
 
+        self.p_momentum = args.p_momentum
+        # 注册全局源域原型记忆库，初始为全 0 矩阵，形状为 (C, D)
+        self.register_buffer("P_source", self.base_network.text_features.clone())
+        self.w_vis = args.w_vis
+        self.w_txt = 1 - self.args.w_vis
 
 
     """
@@ -78,27 +83,42 @@ class TransferNet(nn.Module):
         这里采用 MV-CLIP Multi-View CLIP for Zero-shot 3D Shape Recognition 这篇论文的方法来做
         后续还可以采用 soft attention 来做
     """
-    def multi_views_selection(self, source_features_multiviews):
+    def multi_views_selection(self, multiview_features, source_features=None, source_labels=None):
         if self.args.mv_select_mode == "All":
             # 如果选择了All模式，则直接返回原始特征，不进行任何选择
-            dummy_indices = torch.zeros((source_features_multiviews.shape[0], 1), dtype=torch.long, device=source_features_multiviews.device)
-            return dummy_indices, source_features_multiviews
+            dummy_indices = torch.zeros((multiview_features.shape[0], 1), dtype=torch.long, device=multiview_features.device)
+            return dummy_indices, multiview_features
         
-        B, V, Dim = source_features_multiviews.shape
-
-        # 1. 固定不变：基于文本原型计算各视角熵打分（no_grad不干扰训练梯度）
+        B, V, Dim = multiview_features.shape
         with torch.no_grad():
-            tmp = F.normalize(source_features_multiviews, dim=-1)  # [B, V, Dim]
-            logits = torch.matmul(tmp, self.base_network.text_features.T)  # [B, V, C]
+            tmp = F.normalize(multiview_features, dim=-1)  # [B, V, Dim]
+
+            # 融合源域特征和类别的文本特征，计算熵打分
+            if self.args.use_mean_text_score and source_features is not None and source_labels is not None:
+                unique_labels = torch.unique(source_labels)
+                for c in unique_labels:
+                    c_item = c.item()
+                    mask = (source_labels == c) 
+                    batch_class_mean = source_features[mask].mean(dim=0)
+                    self.P_source[c_item] = self.p_momentum * self.P_source[c_item] + (1 - self.p_momentum) * batch_class_mean
+            
+            if self.args.use_mean_text_score:
+                F_fuse = self.w_txt * self.base_network.text_features + self.w_vis * F.normalize(self.P_source, dim=-1) # 形状依然是 (C, D)
+                F_fuse = F.normalize(F_fuse, dim=-1)  # [C, D]
+                logits = torch.matmul(tmp, F_fuse.T)  # [B, V, C]
+            else:
+                # 只用clip的文本特征来计算熵打分
+                logits = torch.matmul(tmp, self.base_network.text_features.T)  # [B, V, C]
+
             probs = F.softmax(logits, dim=-1)
             entropy = -torch.sum(probs * torch.log(probs + 1e-8), dim=-1)  # [B, V]
 
         # 分支1：原版MV-CLIP硬Top-k选择
         if self.args.mv_select_mode == 'MV_CLIP':
             selected_indices = torch.argsort(entropy, dim=-1)[:, :self.args.top_k]
-            batch_indices = torch.arange(B, device=source_features_multiviews.device).unsqueeze(1)
+            batch_indices = torch.arange(B, device=multiview_features.device).unsqueeze(1)
             batch_indices = batch_indices.expand(-1, self.args.top_k)
-            selected_features = source_features_multiviews[batch_indices, selected_indices]
+            selected_features = multiview_features[batch_indices, selected_indices]
             return selected_indices, selected_features
 
         # 分支2：纯Soft全视角加权融合
@@ -107,15 +127,15 @@ class TransferNet(nn.Module):
             score = -entropy  # [B, V]
             attn_weight = F.softmax(score, dim=-1).unsqueeze(-1)  # [B, V, 1]
             # 所有视角软加权求和，保留1维视角维度兼容上层池化
-            soft_fused_feat = torch.sum(source_features_multiviews * attn_weight, dim=1, keepdim=True)  # [B, 1, Dim]
+            soft_fused_feat = torch.sum(multiview_features * attn_weight, dim=1, keepdim=True)  # [B, 1, Dim]
             # 占位索引，上层不使用也不会报错
-            dummy_indices = torch.zeros((B, 1), dtype=torch.long, device=source_features_multiviews.device)
+            dummy_indices = torch.zeros((B, 1), dtype=torch.long, device=multiview_features.device)
             return dummy_indices, soft_fused_feat
 
         else:
             # 默认不做任何选择，直接返回原始特征
-            dummy_indices = torch.zeros((B, 1), dtype=torch.long, device=source_features_multiviews.device)
-            return dummy_indices, source_features_multiviews
+            dummy_indices = torch.zeros((B, 1), dtype=torch.long, device=multiview_features.device)
+            return dummy_indices, multiview_features
 
 
     """
@@ -147,7 +167,7 @@ class TransferNet(nn.Module):
             target_imgs_flat = target_imgs.view(B*V, C, H, W)     # 展开成[B*V, C, H, W]
             target_features_flat = self.base_network.forward_features(target_imgs_flat)         # 提取目标域图像的特征，这里得到的是f(x)，它的形状是[B*V, feature_dim]
             target_features_multiviews = target_features_flat.view(B, V, -1)                    # 重新调整形状为[B, V, feature_dim]
-            _, target_features_multiviews = self.multi_views_selection(target_features_multiviews)  # 选择多视角特征
+            _, target_features_multiviews = self.multi_views_selection(target_features_multiviews, source_features=source_features, source_labels=source_labels)  # 选择多视角特征
             target_features_global = self.target_feature_pooling(target_features_multiviews)    # 对多视角特征进行池化操作，得到每个样本的整体特征表示，它的形状是[B, feature_dim]
 
             # 上诉过程获得每张view的特征和pooling后的全局特征，接下来我们计算各式logit和损失
@@ -182,7 +202,7 @@ class TransferNet(nn.Module):
                 target_strong_imgs_flat = target_strong_imgs.view(B*V, C, H, W)     # 展开成[B*V, C, H, W]
                 target_strong_features_flat = self.base_network.forward_features(target_strong_imgs_flat)         # 提取强增强目标域图像的特征，这里得到的是f(x)，它的形状是[B*V, feature_dim]
                 target_strong_features_multiviews = target_strong_features_flat.view(B, V, -1)                    # 重新调整形状为[B, V, feature_dim]
-                _, target_strong_features_multiviews = self.multi_views_selection(target_strong_features_multiviews)  # 选择多视角特征
+                _, target_strong_features_multiviews = self.multi_views_selection(target_strong_features_multiviews, source_features=source_features, source_labels=source_labels)  # 选择多视角特征
                 target_strong_features_global = self.target_feature_pooling(target_strong_features_multiviews)    # 对多视角特征进行池化操作得到样本的整体特征表示，它的形状是[B, feature_dim]
                 target_strong_cls_logits_global = self.classifier_layer(target_strong_features_global)            # 通过分类头得到强增强目标域图像的预测结果logits
             else:    # 这里的目标域是单视角情况
@@ -218,7 +238,7 @@ class TransferNet(nn.Module):
             x_flat = imgs.view(B*V, C, H, W)     # 展开成[B*V, C, H, W]
             features_flat = self.base_network.forward_features(x_flat)         # 提取特征，这里得到的是f(x)，它的形状是[B*V, feature_dim]
             features_multiviews = features_flat.view(B, V, -1)                    # 重新调整形状为[B, V, feature_dim]
-            _, features_multiviews = self.multi_views_selection(features_multiviews)  # 选择多视角特征
+            _, features_multiviews = self.multi_views_selection(features_multiviews)  # 选择多视角特征，test阶段没有源域信息
             features_global = self.target_feature_pooling(features_multiviews)    # 对多视角特征进行池化操作，得到每个样本的整体特征表示，它的形状是[B, feature_dim]
             cls_logits_global = self.classifier_layer(features_global)            # 通过分类头得到预测结果logits
             return cls_logits_global

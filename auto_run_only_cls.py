@@ -19,104 +19,110 @@ def build_task_list():
 
 
     tasks.append({
-        "name": "M2S_star_MV_CLIP",
+        "name": "M2S_star_MV_mean_txt",
 		"src_domain": "modelnet",
         "tgt_domain": "scannet",
 		"mv_select_mode": "MV_CLIP",
-		"top_k": 4
+		"top_k": 4,
+		"use_mean_text_score": True
     })
 
-    tasks.append({
-        "name": "M2S_star_Soft",
-		"src_domain": "modelnet",
-        "tgt_domain": "scannet",
-		"mv_select_mode": "Soft",
-		"top_k": 4
-    })
+    # tasks.append({
+    #     "name": "M2S_star_Soft",
+	# 	"src_domain": "modelnet",
+    #     "tgt_domain": "scannet",
+	# 	"mv_select_mode": "Soft",
+	# 	"top_k": 4
+    # })
 
     tasks.append({
-        "name": "M2S_MV_CLIP",
-		"src_domain": "modelnet",
-        "tgt_domain": "shapenet",
-		"mv_select_mode": "MV_CLIP",
-		"top_k": 4
-    })
-
-    tasks.append({
-        "name": "M2S_Soft",
+        "name": "M2S_MV_mean_txt",
 		"src_domain": "modelnet",
         "tgt_domain": "shapenet",
-		"mv_select_mode": "Soft",
-		"top_k": 4
+		"mv_select_mode": "MV_CLIP",
+		"top_k": 4,
+		"use_mean_text_score": True
     })
+
+    # tasks.append({
+    #     "name": "M2S_Soft",
+	# 	"src_domain": "modelnet",
+    #     "tgt_domain": "shapenet",
+	# 	"mv_select_mode": "Soft",
+	# 	"top_k": 4
+    # })
 
 
 
     tasks.append({
-        "name": "S_star2M_MV_CLIP",
+        "name": "S_star2M_MV_mean_txt",
 		"src_domain": "scannet",
         "tgt_domain": "modelnet",
 		"mv_select_mode": "MV_CLIP",
-		"top_k": 4
+		"top_k": 4,
+		"use_mean_text_score": True
     })
 
-    tasks.append({
-        "name": "S_star2M_Soft",
-		"src_domain": "scannet",
-        "tgt_domain": "modelnet",
-		"mv_select_mode": "Soft",
-		"top_k": 4
-    })
+    # tasks.append({
+    #     "name": "S_star2M_Soft",
+	# 	"src_domain": "scannet",
+    #     "tgt_domain": "modelnet",
+	# 	"mv_select_mode": "Soft",
+	# 	"top_k": 4
+    # })
 
     tasks.append({
-        "name": "S_star2S_MV_CLIP",
+        "name": "S_star2S_MV_mean_txt",
 		"src_domain": "scannet",
         "tgt_domain": "shapenet",
 		"mv_select_mode": "MV_CLIP",
-		"top_k": 4
+		"top_k": 4,
+		"use_mean_text_score": True
     })
 
-    tasks.append({
-        "name": "S_star2S_Soft",
-		"src_domain": "scannet",
-        "tgt_domain": "shapenet",
-		"mv_select_mode": "Soft",
-		"top_k": 4
-    })
+    # tasks.append({
+    #     "name": "S_star2S_Soft",
+	# 	"src_domain": "scannet",
+    #     "tgt_domain": "shapenet",
+	# 	"mv_select_mode": "Soft",
+	# 	"top_k": 4
+    # })
 
 
 
     tasks.append({
-        "name": "S2M_MV_CLIP",
+        "name": "S2M_MV_mean_txt",
 		"src_domain": "shapenet",
         "tgt_domain": "modelnet",
 		"mv_select_mode": "MV_CLIP",
-		"top_k": 4
+		"top_k": 4,
+		"use_mean_text_score": True
     })
 
-    tasks.append({
-        "name": "S2M_Soft",
-		"src_domain": "shapenet",
-        "tgt_domain": "modelnet",
-		"mv_select_mode": "Soft",
-		"top_k": 4
-    })
+    # tasks.append({
+    #     "name": "S2M_Soft",
+	# 	"src_domain": "shapenet",
+    #     "tgt_domain": "modelnet",
+	# 	"mv_select_mode": "Soft",
+	# 	"top_k": 4
+    # })
 
     tasks.append({
-        "name": "S2S_star_MV_CLIP",
+        "name": "S2S_star_MV_mean_txt",
 		"src_domain": "shapenet",
         "tgt_domain": "scannet",
 		"mv_select_mode": "MV_CLIP",
-		"top_k": 4
+		"top_k": 4,
+		"use_mean_text_score": True
     })
 
-    tasks.append({
-        "name": "S2S_star_Soft",
-		"src_domain": "shapenet",
-        "tgt_domain": "scannet",
-		"mv_select_mode": "Soft",
-		"top_k": 4
-    })
+    # tasks.append({
+    #     "name": "S2S_star_Soft",
+	# 	"src_domain": "shapenet",
+    #     "tgt_domain": "scannet",
+	# 	"mv_select_mode": "Soft",
+	# 	"top_k": 4
+    # })
 	
     return tasks
 
@@ -249,7 +255,9 @@ def run_task(task, task_id, task_total, gpu_id, config_path, output_log_root):
 		"--mv_select_mode",
 		task["mv_select_mode"],
 		"--top_k",
-		str(task["top_k"])
+		str(task["top_k"]),
+		"--use_mean_text_score",
+		str(task["use_mean_text_score"]).lower(),
 	]
 
 	train_log = os.path.join(output_dir, "train.log")

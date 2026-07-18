@@ -118,13 +118,15 @@ def parse_args():
         type=str, 
         help="目标域特征文件 (model_test_012_fea.pth) 的绝对或相对路径"
     )
+
+    parser.add_argument('--gpu_id', type=int, default=0, help="指定使用的GPU编号 (0-7)")
     
     return parser.parse_args()
 
 
 def run_evaluation(args):
     # 为了加速，如果有GPU可以使用cuda
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    device = torch.device(f'cuda:{args.gpu_id}' if torch.cuda.is_available() else 'cpu')
     print(f"Using device: {device}")
 
     # 1. 从解析好的 args 中获取路径

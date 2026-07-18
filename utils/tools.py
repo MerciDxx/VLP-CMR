@@ -77,15 +77,11 @@ class LambdaSheduler(nn.Module):
 
 
 
-def save_model(model,args):
-    base_network = copy.deepcopy(model.base_network.model.visual)
-    task_head = copy.deepcopy(model.classifier_layer)
-
+def save_model(model, args):
     path = os.path.join(args.log_dir, f"{args.model_name}.pt")
-
     torch.save({
-        'backbone_state_dict': base_network.state_dict(),
-        'head_state_dict': task_head.state_dict(),
+        'full_model_state_dict': model.state_dict(),
+        'args': args,  # 可选，存参数方便复现
     }, path)
 
 
@@ -94,6 +90,5 @@ def load_checkpoint(model, args):
     model = model.cpu()
     checkpoint_dir = os.path.join(args.log_dir, f"{args.model_name}.pt")
     checkpoints = torch.load(checkpoint_dir, map_location="cpu")
-    model.base_network.model.visual.load_state_dict(checkpoints["backbone_state_dict"])
-    model.classifier_layer.load_state_dict(checkpoints["head_state_dict"])
+    model.load_state_dict(checkpoints["full_model_state_dict"])
     return model.to(args.device)

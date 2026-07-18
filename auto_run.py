@@ -17,8 +17,9 @@ REPO_ROOT = os.path.dirname(os.path.abspath(__file__))
 def build_task_list():
     tasks = []
 
+	# MI3DOR2 数据集样例
     tasks.append({
-        "name": "MV_CLIP",
+        "name": "MV_mean_txt",
         "tgt_domain": "Model_net_40_target_train.txt",
         "tgt_multi_view": True,
         "tgt_multi_view_index": None,
@@ -26,54 +27,25 @@ def build_task_list():
         "test_tgt_multi_view": True,
         "test_tgt_multi_view_index": None,
 		"mv_select_mode": "MV_CLIP",
-		"top_k": 4
+		"top_k": 4,
+		"use_mean_text_score": True
     })
 
-    tasks.append({
-        "name": "Soft",
-        "tgt_domain": "Model_net_40_target_train.txt",
-        "tgt_multi_view": True,
-        "tgt_multi_view_index": None,
-        "test_tgt_txt": "Model_net_40_target_test.txt",
-        "test_tgt_multi_view": True,
-        "test_tgt_multi_view_index": None,
-		"mv_select_mode": "Soft",
-		"top_k": 4
-    })
 
-	# # 选择NN得分靠前的4个视角
+
+	# MI3DOR 数据集样例
     # tasks.append({
-    #     "name": "viwes[2,3,6,12]_with_fixmatch",
+    #     "name": "MV_mean_txt",
     #     "tgt_domain": "target_train.txt",
     #     "tgt_multi_view": True,
-    #     "tgt_multi_view_index": [1, 2, 5, 11],
+    #     "tgt_multi_view_index": None,
     #     "test_tgt_txt": "target_test.txt",
     #     "test_tgt_multi_view": True,
-    #     "test_tgt_multi_view_index": [1, 2, 5, 11],
-    # })
-    
-    # # 添加 tgt_all_12_views 任务
-    # tasks.append({
-    #     "name": "tgt_all_12_views",
-    #     "tgt_domain": "Model_net_40_target_train.txt",
-    #     "tgt_multi_view": True,
-    #     "tgt_multi_view_index": None,
-    #     "test_tgt_txt": "Model_net_40_target_test.txt",
-    #     "test_tgt_multi_view": True,
     #     "test_tgt_multi_view_index": None,
+	# 	"mv_select_mode": "MV_CLIP",
+	# 	"top_k": 4,
+	# 	"use_mean_text_score": True
     # })
-    
-    # # 添加 view1 到 view12 的任务
-    # for i in range(1, 13):  # 1-12
-    #     tasks.append({
-    #         "name": f"tgt_view{i}",
-    #         "tgt_domain": "Model_net_40_target_train.txt",  
-    #         "tgt_multi_view": True,
-    #         "tgt_multi_view_index": [i-1],
-    #         "test_tgt_txt": "Model_net_40_target_test.txt",
-    #         "test_tgt_multi_view": True,
-    #         "test_tgt_multi_view_index": [i-1],
-    #     })
     
     return tasks
 
@@ -221,7 +193,9 @@ def run_task(task, task_id, task_total, gpu_id, config_path, config, num_class, 
 		"--mv_select_mode",
 		task["mv_select_mode"],
 		"--top_k",
-		str(task["top_k"])
+		str(task["top_k"]),
+		"--use_mean_text_score",
+		str(task["use_mean_text_score"]).lower(),
 	]
 
 	index_arg = format_index_arg(task["tgt_multi_view_index"])
@@ -232,6 +206,7 @@ def run_task(task, task_id, task_total, gpu_id, config_path, config, num_class, 
 	logger.info("Train command -> %s", train_log)
 	run_command(train_cmd, REPO_ROOT, train_log, logger)
 
+	train_args_path = os.path.join(log_dir, f"config.yaml")
 	model_path = os.path.join(log_dir, f"{model_name}.pt")
 	test_tgt_txt = os.path.join(data_dir, task["test_tgt_txt"])
 
@@ -242,6 +217,8 @@ def run_task(task, task_id, task_total, gpu_id, config_path, config, num_class, 
 		"python",
 		"-m",
 		"retrieval.extract_fea",
+		"--config",
+		train_args_path,
 		"--txt_path",
 		test_src_txt,
 		"--model_path",
@@ -249,19 +226,7 @@ def run_task(task, task_id, task_total, gpu_id, config_path, config, num_class, 
 		"--tgt_multi_view",
 		"false",
 		"--output_path",
-		source_output,
-		"--num_class",
-		str(num_class),
-		"--model_name",
-		model_name,
-		"--num_workers",
-		str(num_workers),
-		"--gpu_id",
-		str(gpu_id),
-		"--mv_select_mode",
-		task["mv_select_mode"],
-		"--top_k",
-		str(task["top_k"]),
+		source_output
 	]
 	extract_source_log = os.path.join(output_dir, "extract_source.log")
 	logger.info("Extract source -> %s", extract_source_log)
@@ -271,6 +236,8 @@ def run_task(task, task_id, task_total, gpu_id, config_path, config, num_class, 
 		"python",
 		"-m",
 		"retrieval.extract_fea",
+		"--config",
+		train_args_path,
 		"--txt_path",
 		test_tgt_txt,
 		"--model_path",
@@ -278,19 +245,7 @@ def run_task(task, task_id, task_total, gpu_id, config_path, config, num_class, 
 		"--tgt_multi_view",
 		str(task["test_tgt_multi_view"]).lower(),
 		"--output_path",
-		target_output,
-		"--num_class",
-		str(num_class),
-		"--model_name",
-		model_name,
-		"--num_workers",
-		str(num_workers),
-		"--gpu_id",
-		str(gpu_id),
-		"--mv_select_mode",
-		task["mv_select_mode"],
-		"--top_k",
-		str(task["top_k"]),
+		target_output
 	]
 
 	index_arg = format_index_arg(task["test_tgt_multi_view_index"])
@@ -308,6 +263,8 @@ def run_task(task, task_id, task_total, gpu_id, config_path, config, num_class, 
 		source_output,
 		"--target_file",
 		target_output,
+		"--gpu_id",
+		str(gpu_id)
 	]
 	eval_log = os.path.join(output_dir, "evaluation.log")
 	logger.info("Evaluate -> %s", eval_log)
@@ -365,7 +322,7 @@ def main():
 				gpu for gpu in gpus
 				if is_gpu_free(gpu, args.mem_threshold, args.util_threshold)
 			]
-			if len(free_gpus) <= 2:
+			if len(free_gpus) <= 0:
 				time.sleep(args.poll_interval)
 				continue
 			free_gpus_sorted = sorted(free_gpus, key=lambda g: g["index"], reverse=True)

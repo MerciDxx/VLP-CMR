@@ -13,17 +13,17 @@ fixmatch: False
 use_amp: True
 
 # Optimizer related
-lr: 3e-6
-weight_decay: 5e-4
+lr: 1e-4
+weight_decay: 1e-4
 momentum: 0.9
 label_smoothing: 0.1
 l_batch_size: 32
 u_batch_size: 32
 
 # Loss related
-lambda1: 0.25
-lambda2: 0.1
-lambda3: 0.025
+lambda1: 1.0
+lambda2: 0.5
+lambda3: 0.1
 
 # scheduler related
 scheduler: True

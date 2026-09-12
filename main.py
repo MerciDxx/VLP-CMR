@@ -62,7 +62,7 @@ def get_optimizer(model, args):
     initial_lr = args.lr if not args.scheduler else 1.0
     params = model.get_parameters(initial_lr=initial_lr)
 
-    if args.optim_type == 'SGD':
+    if args.optimizer == 'SGD':
         optimizer = torch.optim.SGD(
             params, 
             lr=args.lr, 
@@ -72,7 +72,7 @@ def get_optimizer(model, args):
         )
         return optimizer
     
-    elif args.optim_type == 'Adam':
+    elif args.optimizer == 'Adam':
         # Adam 优化器不需要 momentum 和 nesterov
         optimizer = torch.optim.Adam(
             params, 
@@ -81,7 +81,7 @@ def get_optimizer(model, args):
         )
         return optimizer
 
-    elif args.optim_type == 'AdamW':
+    elif args.optimizer == 'AdamW':
         # 【强烈推荐】微调专用 AdamW，权重衰减（weight decay）更准确
         optimizer = torch.optim.AdamW(
             params, 
@@ -91,7 +91,7 @@ def get_optimizer(model, args):
         return optimizer
         
     else:
-        raise ValueError(f"Unsupported optimizer type: {args.optim_type}")
+        raise ValueError(f"Unsupported optimizer type: {args.optimizer}")
 
 
 

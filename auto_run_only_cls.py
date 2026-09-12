@@ -14,115 +14,53 @@ REPO_ROOT = os.path.dirname(os.path.abspath(__file__))
 """
 	这里定义不同的任务区别
 """
-def build_task_list():
+def build_task_list(config_path):
+    filename = os.path.basename(config_path)
+    params_suffix = os.path.splitext(filename)[0]
+
     tasks = []
 
 
     tasks.append({
-        "name": "M2S_star_MV_mean_txt",
+        "name": f"M2S_star_{params_suffix}",
 		"src_domain": "modelnet",
         "tgt_domain": "scannet",
-		"mv_select_mode": "MV_CLIP",
-		"top_k": 4,
-		"use_mean_text_score": True
     })
 
-    # tasks.append({
-    #     "name": "M2S_star_Soft",
-	# 	"src_domain": "modelnet",
-    #     "tgt_domain": "scannet",
-	# 	"mv_select_mode": "Soft",
-	# 	"top_k": 4
-    # })
-
     tasks.append({
-        "name": "M2S_MV_mean_txt",
+        "name": f"M2S_{params_suffix}",
 		"src_domain": "modelnet",
         "tgt_domain": "shapenet",
-		"mv_select_mode": "MV_CLIP",
-		"top_k": 4,
-		"use_mean_text_score": True
     })
-
-    # tasks.append({
-    #     "name": "M2S_Soft",
-	# 	"src_domain": "modelnet",
-    #     "tgt_domain": "shapenet",
-	# 	"mv_select_mode": "Soft",
-	# 	"top_k": 4
-    # })
 
 
 
     tasks.append({
-        "name": "S_star2M_MV_mean_txt",
+        "name": f"S_star2M_{params_suffix}",
 		"src_domain": "scannet",
         "tgt_domain": "modelnet",
-		"mv_select_mode": "MV_CLIP",
-		"top_k": 4,
-		"use_mean_text_score": True
     })
 
-    # tasks.append({
-    #     "name": "S_star2M_Soft",
-	# 	"src_domain": "scannet",
-    #     "tgt_domain": "modelnet",
-	# 	"mv_select_mode": "Soft",
-	# 	"top_k": 4
-    # })
-
     tasks.append({
-        "name": "S_star2S_MV_mean_txt",
+        "name": f"S_star2S_{params_suffix}",
 		"src_domain": "scannet",
         "tgt_domain": "shapenet",
-		"mv_select_mode": "MV_CLIP",
-		"top_k": 4,
-		"use_mean_text_score": True
     })
-
-    # tasks.append({
-    #     "name": "S_star2S_Soft",
-	# 	"src_domain": "scannet",
-    #     "tgt_domain": "shapenet",
-	# 	"mv_select_mode": "Soft",
-	# 	"top_k": 4
-    # })
 
 
 
     tasks.append({
-        "name": "S2M_MV_mean_txt",
+        "name": f"S2M_{params_suffix}",
 		"src_domain": "shapenet",
         "tgt_domain": "modelnet",
-		"mv_select_mode": "MV_CLIP",
-		"top_k": 4,
-		"use_mean_text_score": True
     })
-
-    # tasks.append({
-    #     "name": "S2M_Soft",
-	# 	"src_domain": "shapenet",
-    #     "tgt_domain": "modelnet",
-	# 	"mv_select_mode": "Soft",
-	# 	"top_k": 4
-    # })
 
     tasks.append({
-        "name": "S2S_star_MV_mean_txt",
+        "name": f"S2S_star_{params_suffix}",
 		"src_domain": "shapenet",
         "tgt_domain": "scannet",
-		"mv_select_mode": "MV_CLIP",
-		"top_k": 4,
-		"use_mean_text_score": True
     })
 
-    # tasks.append({
-    #     "name": "S2S_star_Soft",
-	# 	"src_domain": "shapenet",
-    #     "tgt_domain": "scannet",
-	# 	"mv_select_mode": "Soft",
-	# 	"top_k": 4
-    # })
 	
     return tasks
 
@@ -225,7 +163,7 @@ def run_task(task, task_id, task_total, gpu_id, config_path, output_log_root):
 	tgt_domain = task["tgt_domain"]
 
 	log_info = make_log_info(task["name"])
-	output_dir = os.path.join(output_log_root, log_info)
+	output_dir = os.path.join(output_log_root, f"{src_domain}2{tgt_domain}", log_info)
 	os.makedirs(output_dir, exist_ok=True)
 	run_log_path = os.path.join(output_dir, "auto_run.log")
 	logger = build_logger(f"auto_run.{log_info}", run_log_path)
@@ -252,12 +190,6 @@ def run_task(task, task_id, task_total, gpu_id, config_path, output_log_root):
         src_domain,
 		"--tgt_domain",
 		tgt_domain,
-		"--mv_select_mode",
-		task["mv_select_mode"],
-		"--top_k",
-		str(task["top_k"]),
-		"--use_mean_text_score",
-		str(task["use_mean_text_score"]).lower(),
 	]
 
 	train_log = os.path.join(output_dir, "train.log")
@@ -268,8 +200,8 @@ def run_task(task, task_id, task_total, gpu_id, config_path, output_log_root):
 
 def main():
 	parser = argparse.ArgumentParser(description="Auto scheduler for VLP-CMR")
-	parser.add_argument("--config", type=str, default="config/MI3DOR.yaml")
-	parser.add_argument("--mem-threshold", type=int, default=100)
+	parser.add_argument("--config", type=str, required=True)
+	parser.add_argument("--mem-threshold", type=int, default=1000)
 	parser.add_argument("--util-threshold", type=int, default=3)
 	parser.add_argument("--poll-interval", type=int, default=60)
 	args = parser.parse_args()
@@ -279,7 +211,7 @@ def main():
 	
 	output_log_root = os.path.join(REPO_ROOT, "output_log", config.get("datasets"))
 	os.makedirs(output_log_root, exist_ok=True)
-	tasks = build_task_list()
+	tasks = build_task_list(args.config)
 	pending = list(tasks)
 	running = {}
 	task_total = len(tasks)
@@ -299,7 +231,7 @@ def main():
 				gpu for gpu in gpus
 				if is_gpu_free(gpu, args.mem_threshold, args.util_threshold)
 			]
-			if len(free_gpus) <= 2:
+			if len(free_gpus) <= 0:
 				time.sleep(args.poll_interval)
 				continue
 			free_gpus_sorted = sorted(free_gpus, key=lambda g: g["index"], reverse=True)
